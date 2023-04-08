@@ -5,5 +5,9 @@ Please do not use this code for production, as it is no where near ready for it.
 
 Blog: https://reversing.info/posts/guardedregions
 
+## Media
+![Demo Windows](Media/DemoWin.gif)
+![Demo WinDbg](Media/DemoWindbg.gif)
+
 ## License
 This code is released under the MIT license. See `LICENSE` for more details.
