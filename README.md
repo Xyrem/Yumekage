@@ -3,7 +3,7 @@ This repository contains a demo proof of concept implementation for shadowing me
 
 Please do not use this code for production, as it is no where near ready for it.
 
-Blog: https://reversing.info/posts/guardedregions
+Blog post: https://reversing.info/posts/guardedregions
 
 ## Media
 ![Demo Windows](Media/DemoWin.gif)
