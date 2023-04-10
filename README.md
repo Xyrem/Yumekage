@@ -9,5 +9,5 @@ Blog post: https://reversing.info/posts/guardedregions
 ![Demo Windows](Media/DemoWin.gif)
 ![Demo WinDbg](Media/DemoWindbg.gif)
 
-## License
-This code is released under the MIT license. See `LICENSE` for more details.
+## Credits
+- [Everdox](https://www.linkedin.com/in/everdox) for coming up with the idea of abusing context swaps to create hidden memory.
