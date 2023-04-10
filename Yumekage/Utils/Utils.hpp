@@ -55,7 +55,7 @@ namespace Utils
 			return 0;
 
 		PIMAGE_NT_HEADERS64 NT = NTHEADER( Base );
-		if ( !NT->Signature != IMAGE_NT_SIGNATURE )
+		if ( NT->Signature != IMAGE_NT_SIGNATURE )
 			return 0;
 
 		PIMAGE_SECTION_HEADER SectionHeader = IMAGE_FIRST_SECTION( NT );
