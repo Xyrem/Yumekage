@@ -23,7 +23,6 @@ namespace Paging
 	extern int FreePML4Index;
 
 	void CreateShadowPages( );
-	void FlushTLB( );
 
 	void ConstructPML4( _In_ pml4e_64* _PML4E, _In_ uint64_t Phys, _In_ bool Usermode );
 	void ConstructPDPT( _In_ pdpte_64* PDPTE, _In_ uint64_t Phys, _In_ bool Usermode, _In_ bool LargePage = false );
