@@ -53,18 +53,6 @@ namespace Paging
 	}
 
 	/*
-	*	Flush the TLB 
-	*/
-	void FlushTLB( )
-	{
-		__writecr3( __readcr3( ) );
-
-		uint64_t CR4 = __readcr4( );
-		__writecr4( CR4 ^ 0x80 );
-		__writecr4( CR4 );
-	}
-
-	/*
 	*	Construct a PML4 entry.
 	*/
 	void ConstructPML4( _In_ pml4e_64* _PML4E, _In_ uint64_t Phys, _In_ bool Usermode )
