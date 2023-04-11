@@ -174,6 +174,14 @@ NTSTATUS DriverEntry( _In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Reg
 		DBG( "This version of windows is not supported\n" );
 		return STATUS_FAILED_DRIVER_ENTRY;
 	}
+	
+	// Basic check to determine if the 5 level paging tables are enabled.
+	// If enabled, don't execute further as it is unsupported.
+	if ( cr4{ .flags = __readcr4( ) }.linear_addresses_57_bit )
+	{
+		DBG( "This version of Yumekage does not support the 5 level paging hierarchy\n" );
+		return STATUS_FAILED_DRIVER_ENTRY;
+	}
 
 	// Initialize HyperDeceit.
 	if ( !HyperDeceit::Initialize( ) )
