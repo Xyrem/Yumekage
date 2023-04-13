@@ -81,9 +81,12 @@ public:
 	*/
 	void Destroy( )
 	{
+		// Thanks to hackedhacker on unknowncheats
+		// for letting me know about this silly bug.
+		if( !Objects )
+			return;
+		
 		KIRQL Irql = EnterLock( );
-		Count = 0;
-		MaxCapacity = 0;
 
 		// Erase everything.
 		memset( Objects, Count * sizeof( T ), 0 );
@@ -91,6 +94,8 @@ public:
 		// Free the allocation.
 		ExFreePool( Objects );
 
+		Count = 0;
+		MaxCapacity = 0;
 		Objects = 0;
 		ExitLock( Irql );
 	}
