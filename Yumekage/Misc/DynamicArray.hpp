@@ -88,8 +88,8 @@ public:
 		
 		KIRQL Irql = EnterLock( );
 
-		// Erase everything.
-		memset( Objects, Count * sizeof( T ), 0 );
+		// Erase everything. (Fixed another bug reported by bazhar)
+		memset( Objects, 0, Count * sizeof( T ) );
 		
 		// Free the allocation.
 		ExFreePool( Objects );
