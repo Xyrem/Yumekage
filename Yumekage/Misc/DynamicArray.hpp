@@ -18,24 +18,24 @@ class DynamicArray
 {
 private:
 	T* Objects;
-	int Count;
-	int MaxCapacity;
+	uint32_t Count;
+	uint32_t MaxCapacity;
 	KSPIN_LOCK Spinlock;
 
 	/*
-	*	Initialize the array by allocating memory for the objects. 
+	*	Initialize the array by allocating memory for the objects.
 	*/
-	void Initialize( )
+	void Initialize()
 	{
-		KIRQL Irql = EnterLock( );
-		if ( !Objects )
+		KIRQL Irql = EnterLock();
+		if (!Objects)
 		{
 			// Simply accept 64 entries as a starting point.
 			MaxCapacity = sizeof( T ) * 64;
 			Objects = (T*)ExAllocatePool( POOL_TYPE::NonPagedPoolNx, MaxCapacity );
 
 			// Should never happen, unless the system is out of resources, so just crash the system at that point.
-			if ( !Objects )
+			if (!Objects)
 				__fastfail( 'POOL' );
 
 			// Erase all artifacts of previously allocated stuff.
@@ -49,7 +49,7 @@ public:
 	/*
 	*	Enter a spinlock for thread safety.
 	*/
-	KIRQL EnterLock( )
+	KIRQL EnterLock()
 	{
 		return KeAcquireSpinLockRaiseToDpc( &Spinlock );
 	}
@@ -65,10 +65,10 @@ public:
 	/*
 	*	Removes all entries.
 	*/
-	void Clear( )
+	void Clear()
 	{
-		KIRQL Irql = EnterLock( );
-		if ( Objects && Count )
+		KIRQL Irql = EnterLock();
+		if (Objects && Count)
 		{
 			memset( Objects, 0, sizeof( T ) * Count );
 			Count = 0;
@@ -79,18 +79,16 @@ public:
 	/*
 	*	Remove all entries and free the allocation.
 	*/
-	void Destroy( )
+	void Destroy()
 	{
-		// Thanks to hackedhacker on unknowncheats
-		// for letting me know about this silly bug.
-		if( !Objects )
+		if (!Objects)
 			return;
-		
-		KIRQL Irql = EnterLock( );
 
-		// Erase everything. (Fixed another bug reported by bazhar)
+		KIRQL Irql = EnterLock();
+
+		// Erase everything.
 		memset( Objects, 0, Count * sizeof( T ) );
-		
+
 		// Free the allocation.
 		ExFreePool( Objects );
 
@@ -106,30 +104,31 @@ public:
 	void Insert( _In_ T Item )
 	{
 		// Has the array not been initialized yet?
-		if ( !Objects )
-			Initialize( );
+		if (!Objects)
+			Initialize();
 
-		KIRQL Irql = EnterLock( );
-		
+		KIRQL Irql = EnterLock();
+
 		// Have we ran out of space for a new item? If so, allocate a pool x2 the size and copy over data.
-		if ( sizeof(T) + Count * sizeof(T) > MaxCapacity )
+		if (sizeof( T ) + Count * sizeof( T ) > MaxCapacity)
 		{
 			MaxCapacity *= 2;
 			T* NewArray = (T*)ExAllocatePool( POOL_TYPE::NonPagedPoolNx, MaxCapacity );
 
 			// If this is null, the system is out of resources, there's nothing we can do now, so crash the system.
-			if ( !NewArray )
+			if (!NewArray)
 				__fastfail( 'POOL' );
 
 			// We can ignore the *existing* items as they will be overwritten anyway.
-			memset( &NewArray[Count], 0, MaxCapacity - (sizeof(T) * Count));
+			memset( &NewArray[ Count ], 0, MaxCapacity - (sizeof( T ) * Count) );
 
 			// Copy over the existing items to the new array.
+			// Suppressing / disabling the warning for C6387 isnt working for some reason, so well we ignore this lol..
 			memcpy( NewArray, Objects, Count * sizeof( T ) );
 
 			// Free the original pool.
 			ExFreePool( Objects );
-			
+
 			// Set the new array.
 			Objects = NewArray;
 		}
@@ -146,17 +145,17 @@ public:
 	{
 		// Has the array not been initialized yet? If so, initialize and return false as there
 		// will not be any entries anyway.
-		if ( !Objects )
+		if (!Objects)
 		{
-			Initialize( );
+			Initialize();
 			return false;
 		}
 
-		KIRQL Irql = EnterLock( );
+		KIRQL Irql = EnterLock();
 		// Loop through the array in search of the item.
-		for ( int i = 0; i < Count; i++ )
+		for (uint32_t i = 0; i < Count; i++)
 		{
-			if ( Objects[ i ] == Item )
+			if (Objects[ i ] == Item)
 			{
 				ExitLock( Irql );
 				return true;
@@ -172,18 +171,18 @@ public:
 	*	Get the item in the array with the index provided,
 	*	also do certain sanity checks.
 	*/
-	T operator[]( int i )
+	T operator[]( uint32_t i )
 	{
 		// Has the array not been initialized yet? If so, initialize and return nothing as there
 		// will not be any entries anyway.
-		if ( !Objects )
+		if (!Objects)
 		{
-			Initialize( );
+			Initialize();
 			return {};
 		}
 
-		// Is the index specified more than the number of items, or is it negative? If so trigger a crash to analyze.
-		if ( i > Count || i < 0 )
+		// Is the index specified more than the number of items, or is it negative? If so trigger a crash to analyze this bug..
+		if (i > Count)
 			__fastfail( 0xBAD128 );
 
 		// Return the item.
@@ -193,7 +192,7 @@ public:
 	/*
 	*	Gets the number of items.
 	*/
-	int Size( )
+	uint32_t Size()
 	{
 		return Count;
 	}

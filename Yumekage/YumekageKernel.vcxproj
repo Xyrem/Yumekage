@@ -67,18 +67,19 @@
     <Link>
       <GenerateMapFile>true</GenerateMapFile>
       <EntryPointSymbol>DriverEntry</EntryPointSymbol>
+      <AdditionalDependencies>HyperDeceit.lib;%(AdditionalDependencies);$(KernelBufferOverflowLib);$(DDK_LIB_PATH)ntoskrnl.lib;$(DDK_LIB_PATH)hal.lib;$(DDK_LIB_PATH)wmilib.lib;$(KMDF_LIB_PATH)$(KMDF_VER_PATH)\WdfLdr.lib;$(KMDF_LIB_PATH)$(KMDF_VER_PATH)\WdfDriverEntry.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="HyperDeceit.hpp" />
     <ClInclude Include="Misc\DynamicArray.hpp" />
     <ClInclude Include="Common.hpp" />
     <ClInclude Include="ia32.hpp" />
     <ClInclude Include="Paging\Paging.hpp" />
     <ClInclude Include="Utils\Utils.hpp" />
-    <ClInclude Include="HyperDeceit.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

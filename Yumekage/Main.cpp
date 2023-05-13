@@ -14,8 +14,6 @@
 #include "HyperDeceit.hpp"
 #include "Paging/Paging.hpp"
 
-#pragma comment(lib, "HyperDeceit.lib")
-
 DynamicArray<void*> MemoryAllocations;
 DynamicArray<PKTHREAD> WhitelistedThreads;
 
@@ -25,8 +23,13 @@ UNICODE_STRING YumekageDosSymlink = RTL_CONSTANT_STRING( L"\\DosDevices\\Yumekag
 #define WhitelistThreadCTL CTL_CODE( FILE_DEVICE_UNKNOWN, 0xBAD, METHOD_BUFFERED, FILE_ANY_ACCESS )
 #define InitializeCTL CTL_CODE( FILE_DEVICE_UNKNOWN, 0xD00D, METHOD_BUFFERED, FILE_ANY_ACCESS )
 
-void SwapContextHook( )
+void SwapContextHook( _In_ uint64_t Input, _In_ uint64_t Output, _In_ uint64_t OldCR3 )
 {
+	// We don't use these here.
+	UNREFERENCED_PARAMETER( Input );
+	UNREFERENCED_PARAMETER( Output );
+	UNREFERENCED_PARAMETER( OldCR3 );
+
 	// Check if the current thread is whitelisted, if not then return and do nothing.
 	if ( !WhitelistedThreads.Contains( KeGetCurrentThread( ) ) )
 		return;
@@ -40,7 +43,7 @@ void SwapContextHook( )
 	// Set the CR3
 	cr3 CR3 = cr3{ .flags = __readcr3( ) };
 	CR3.address_of_page_directory = Paging::CloneCR3Phys >> 12;
-	HyperDeceit::AddressSpace::SetCR3( CR3 );
+	HyperDeceit::HyperV::Emulator::SwitchAddressSpace( CR3.flags );
 
 	// Basic logging for us.
 	DBG( "Handling context swap for thread %d | process %d\n", PsGetCurrentThreadId( ), PsGetCurrentProcessId( ) );
@@ -87,7 +90,7 @@ NTSTATUS Dispatch( _In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp )
 			// Set the new cr3 to the clone one.
 			cr3 CR3 = cr3{ .flags = __readcr3( ) };
 			CR3.address_of_page_directory = Paging::CloneCR3Phys >> 12;
-			HyperDeceit::AddressSpace::SetCR3( CR3 );
+			HyperDeceit::HyperV::Emulator::SwitchAddressSpace( CR3.flags );
 
 			// Basic logging.
 			DBG( "Whitelisted thread %d\n", PsGetCurrentThreadId( ) );
@@ -148,7 +151,7 @@ void DriverUnload( _In_ PDRIVER_OBJECT DriverObject )
 
 	// Free all memory allocations.
 	KIRQL Irql = MemoryAllocations.EnterLock( );
-	for ( int32_t i = 0; i < MemoryAllocations.Size( ); i++ )
+	for ( uint32_t i = 0; i < MemoryAllocations.Size( ); i++ )
 		MmFreeContiguousMemory( MemoryAllocations[ i ] );
 	MemoryAllocations.ExitLock( Irql );
 
@@ -157,7 +160,9 @@ void DriverUnload( _In_ PDRIVER_OBJECT DriverObject )
 	MemoryAllocations.Destroy( );
 
 	// Stop HyperDeceit.
-	HyperDeceit::Destroy( );
+	HyperDeceit::EHvDStatus Status = HyperDeceit::HvDStop( );
+	if (Status != HyperDeceit::EHvDStatus::Success)
+		DBG( "Failed to stop HyperDeceit <%s>\n", HyperDeceit::HvDGetStatusString( Status ) );
 
 	DBG( "Unloaded\n" );
 }
@@ -183,29 +188,44 @@ NTSTATUS DriverEntry( _In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Reg
 		return STATUS_FAILED_DRIVER_ENTRY;
 	}
 
-	// Initialize HyperDeceit.
-	if ( !HyperDeceit::Initialize( ) )
+	// Get the base address of ntoskrnl.exe the easy way lol.
+	uint64_t KernelBase = RtlPcToFileHeader( &RtlPcToFileHeader, &KernelBase );
+	if (!KernelBase)
 	{
-		DBG( "Failed to initialize HyperDeceit\n" );
+		DBG( "Failed to find Kernel Base\n" );
+		return STATUS_FAILED_DRIVER_ENTRY;
+	}
+
+	// Initialize HyperDeceit.
+	HyperDeceit::EHvDStatus HvDStatus = HyperDeceit::HvDInitialize( KernelBase );
+	if (HvDStatus != HyperDeceit::EHvDStatus::Success)
+	{
+		DBG( "Failed to initialize HyperDeceit <%s>\n", HyperDeceit::HvDGetStatusString(HvDStatus) );
 		return STATUS_FAILED_DRIVER_ENTRY;
 	}
 
 	// Create the device object.
-	NTSTATUS Status;
+	NTSTATUS NTStatus;
 	PDEVICE_OBJECT DeviceObject;
-	if ( !NT_SUCCESS( Status = IoCreateDevice( DriverObject, 0, &YumekageDeviceName, FILE_DEVICE_UNKNOWN, 0, FALSE, &DeviceObject ) ) )
+	if ( !NT_SUCCESS( NTStatus = IoCreateDevice( DriverObject, 0, &YumekageDeviceName, FILE_DEVICE_UNKNOWN, 0, FALSE, &DeviceObject ) ) )
 	{
-		DBG( "Failed to create device object status: %lX\n", Status );
-		HyperDeceit::Destroy( );
+		DBG( "Failed to create device object status: %lX\n", NTStatus );
+
+		HvDStatus = HyperDeceit::HvDStop();
+		if (HvDStatus != HyperDeceit::EHvDStatus::Success)
+			DBG( "Failed to stop HyperDeceit <%s>\n", HyperDeceit::HvDGetStatusString( HvDStatus ) );
 		return STATUS_FAILED_DRIVER_ENTRY;
 	}
 
 	// Create the dos symbolic link, so our client can communicate.
-	if ( !NT_SUCCESS( Status = IoCreateSymbolicLink( &YumekageDosSymlink, &YumekageDeviceName ) ) )
+	if ( !NT_SUCCESS( NTStatus = IoCreateSymbolicLink( &YumekageDosSymlink, &YumekageDeviceName ) ) )
 	{
-		DBG( "Failed to create sym link status: %lX\n", Status );
+		DBG( "Failed to create sym link status: %lX\n", NTStatus );
 		IoDeleteDevice( DeviceObject );
-		HyperDeceit::Destroy( );
+
+		HvDStatus = HyperDeceit::HvDStop();
+		if (HvDStatus != HyperDeceit::EHvDStatus::Success)
+			DBG( "Failed to stop HyperDeceit <%s>\n", HyperDeceit::HvDGetStatusString( HvDStatus ) );
 		return STATUS_FAILED_DRIVER_ENTRY;
 	}
 
@@ -219,7 +239,7 @@ NTSTATUS DriverEntry( _In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Reg
 	Paging::CreateShadowPages( );
 
 	// Let HyperDeceit know that we want to intercept context swaps.
-	HyperDeceit::InsertCallback( HyperDeceit::ECallbacks::ContextSwap, &SwapContextHook );
+	HyperDeceit::HvDInsertCallback( HyperDeceit::HyperV::ECommand::SwitchAddressSpace, &SwapContextHook );
 
 	DBG( "Loaded\n" );
 	return STATUS_SUCCESS;

@@ -1,10 +1,6 @@
 #pragma once
 #pragma region CompilerWarningAndErrorFixes
-// Disable warning for "Banned API ExAllocatePool*" | Reason: Replacements are possibly not available in older versions of windows.
-#pragma warning( disable : 28751 )
-#pragma warning( disable : 4189 )
-#pragma warning( disable : 4201 )
-#pragma error( disable : 2486 )
+#pragma warning( disable : 6273)
 #pragma endregion
 
 #define _VERBOSE_ // Comment this line out to disable debug logging completely.
@@ -72,6 +68,11 @@ typedef char int8_t;
 		BugcheckCode ? KeBugCheck( BugcheckCode ) : __debugbreak( );				\
 	}
 #pragma endregion
+
+
+#pragma region Imports
+_IMPORT_ uint64_t RtlPcToFileHeader( void*, uint64_t* );
+#pragma endregion 
 
 #pragma region GlobalVars
 extern DynamicArray<void*> MemoryAllocations;
